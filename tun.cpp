@@ -1,5 +1,3 @@
-#include<linux/if.h>
-#include<linux/if_tun.h>
 #include<sys/types.h>
 #include<sys/stat.h>
 #include<sys/ioctl.h>
@@ -8,12 +6,14 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
-#include<sys/socket.h>
 #include<netinet/in.h>
+#include<sys/socket.h>
 #include<sys/un.h>
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<pthread.h>
+#include<linux/if.h>
+#include<linux/if_tun.h>
 
 //#include<bits/stdc++.h>
 //using namespace std;
@@ -44,14 +44,14 @@ void* writer(void* argument){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(tunfd, wrbuff+pos, 2048-pos);
+		sz = read(tunfd, wrbuff/*+pos*/, 2048/*-pos*/);
 		if(sz<=0){
 			break;
 		}
-		int sz2 = write(connfd, wrbuff + pos, sz);
+		int sz2 = write(connfd, wrbuff/* + pos*/, sz);
 		pos+=sz;
 		printf("read %d from tun\n", sz);
-		printf("write %d to socket\n", sz);
+		printf("write %d to socket\n", sz2);
 		if(pos==2048) pos=0;
 	}
 }
@@ -69,7 +69,7 @@ void server(){
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_family=AF_INET;
 	sa.sin_port=htons(10010);
-	sa.sin_addr.s_addr=htonl(INADDR_ANY);
+	sa.sin_addr.s_addr = INADDR_ANY;
 	if(bind(sockfd, (struct sockaddr*)&sa, sizeof(sa))<0){
 		printf("bind error\n");
 		exit(1);
@@ -83,13 +83,14 @@ void server(){
 		close(sockfd);
 		exit(1);
 	}
-	printf("Connection established\n");
+	printf("Connection established, fd: %d\n", connfd);
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(connfd, rdbuff+pos, 2048 - pos);
+		printf("Wanna receive stuffs\n");
+		sz = read(connfd, rdbuff/*+pos*/, 2048 /*- pos*/);
 		if(sz==0){
 			printf("Connection terminated\n");
 			close(connfd);
@@ -97,7 +98,7 @@ void server(){
 			break;
 		}
 		printf("receive sized %d\n", sz);
-		write(tunfd, rdbuff+pos, sz);
+		write(tunfd, rdbuff/*+pos*/, sz);
 		pos+=sz;
 		if(pos==2048) pos=0;
 		printf("read %d %c",sz, rdbuff[0]);
@@ -126,20 +127,22 @@ void client(const char * ipaddr){
 		close(sockfd);
 		exit(1);
 	}
-	printf("Connection established\n");
+	connfd = sockfd;
+	printf("Connection established, fd: %d\n", connfd);
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(connfd, rdbuff+pos, 2048 - pos);
+		printf("Wanna receive stuffs\n");
+		sz = read(connfd, rdbuff/*+pos*/, 2048 /*- pos*/);
 		if(sz<=0){
 			printf("connection terminated\n");
 			close(connfd);
 			close(sockfd);
 			break;
 		}
-		write(tunfd, rdbuff+pos, sz);
+		write(tunfd, rdbuff/*+pos*/, sz);
 		printf("received sized %d\n", sz);
 		pos+=sz;
 		if(pos==2048) pos=0;

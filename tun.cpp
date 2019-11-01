@@ -44,8 +44,10 @@ void* writer(void* argument){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(tunfd, wrbuff, 2048-pos);
-		if(sz==0) break;
+		sz = read(tunfd, wrbuff+pos, 2048-pos);
+		if(sz==0){
+			break;
+		}
 		write(connfd, wrbuff + pos, sz);
 		pos+=sz;
 		if(pos==2048) pos=0;
@@ -59,7 +61,7 @@ void server(){
 	unsigned int len;
 	struct sockaddr_in sa, ta;
 	if((sockfd=socket(AF_INET, SOCK_STREAM, 0))<0){
-		printf("Socket failed");
+		printf("Socket failed\n");
 		exit(1);
 	}
 	memset(&sa, 0, sizeof(sa));
@@ -74,22 +76,24 @@ void server(){
 		printf("listen error\n");
 		exit(1);
 	}
-	connfd = accept(sockfd, (struct sockaddr *)&ta, &len);
+	if((connfd = accept(sockfd, (struct sockaddr *)&ta, &len))<0){
+		printf("Connection error\n");
+		exit(1);
+	}
 	printf("Connection established\n");
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(connfd, rdbuff, 1 - pos);
+		sz = read(connfd, rdbuff+pos, 2048 - pos);
 		if(sz==0){
-			printf("connection ended\n");
+			printf("Connection terminated\n");
 			break;
 		}
 		write(tunfd, rdbuff+pos, sz);
 		pos+=sz;
-		if(pos==1) pos=0;
-		printf("read %d %c",sz, rdbuff[0]);
+		if(pos==2048) pos=0;
 	}
 }
 void client(){
@@ -107,39 +111,43 @@ void client(){
 	sa.sin_family=AF_INET;
 	sa.sin_port=htons(10010);
 	//sa.sin_addr.s_addr=htonl(INADDR_ANY);
-	inet_pton(AF_INET, "127.0.0.1", &sa.sin_addr);
+	inet_pton(AF_INET, "10.0.2.15", &sa.sin_addr);
 	
 	connfd = connect(sockfd, (struct sockaddr *)&ta, sizeof(sa));
+	if(connfd<0){
+		printf("Connection error\n");
+		exit(1);
+	}
 	printf("Connection established\n");
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(connfd, rdbuff, 1 - pos);
+		sz = read(connfd, rdbuff, 2048 - pos);
 		if(sz==0){
 			printf("connection ended\n");
 			break;
 		}
 		write(tunfd, rdbuff+pos, sz);
 		pos+=sz;
-		if(pos==1) pos=0;
-		printf("read %d %c",sz, rdbuff[0]);
+		if(pos==2048) pos=0;
+		//printf("read %d %c",sz, rdbuff[0]);
 	}
 }
 int main(int argc, char* argv[]){
 	//cout<<argc<<endl;
 	if(argc<2){
-		printf("argument: 1 (client) 0 (server)\n");
+		printf("Argument: 1 (client) 0 (server)\n");
 		exit(1);
 	}
 	tunfd = alloc();
 	printf("%d, %s", argc, argv[1]);
 	if(argv[1][0]=='0'){
-		printf("running server now");
+		printf("running server now\n");
 		server();
 	}else if(argv[1][0]=='1'){
-		printf("running client now");
+		printf("running client now\n");
 		client();
 	}
 	return 0;

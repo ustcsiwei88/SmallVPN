@@ -81,14 +81,14 @@ void server(){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(connfd, rdbuff, 1 - pos);
+		sz = read(connfd, rdbuff, 2048 - pos);
 		if(sz==0){
 			printf("connection ended\n");
 			break;
 		}
 		write(tunfd, rdbuff+pos, sz);
 		pos+=sz;
-		if(pos==1) pos=0;
+		if(pos==2048) pos=0;
 		printf("read %d %c",sz, rdbuff[0]);
 	}
 }
@@ -107,7 +107,7 @@ void client(){
 	sa.sin_family=AF_INET;
 	sa.sin_port=htons(10010);
 	//sa.sin_addr.s_addr=htonl(INADDR_ANY);
-	inet_pton(AF_INET, "127.0.0.1", &sa.sin_addr);
+	inet_pton(AF_INET, "10.0.2.15", &sa.sin_addr);
 	
 	connfd = connect(sockfd, (struct sockaddr *)&ta, sizeof(sa));
 	printf("Connection established\n");
@@ -116,15 +116,15 @@ void client(){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(connfd, rdbuff, 1 - pos);
+		sz = read(connfd, rdbuff, 2048 - pos);
 		if(sz==0){
 			printf("connection ended\n");
 			break;
 		}
 		write(tunfd, rdbuff+pos, sz);
 		pos+=sz;
-		if(pos==1) pos=0;
-		printf("read %d %c",sz, rdbuff[0]);
+		if(pos==2048) pos=0;
+		//printf("read %d %c",sz, rdbuff[0]);
 	}
 }
 int main(int argc, char* argv[]){

@@ -100,6 +100,7 @@ void server(){
 		write(tunfd, rdbuff+pos, sz);
 		pos+=sz;
 		if(pos==2048) pos=0;
+		printf("read %d %c",sz, rdbuff[0]);
 	}
 }
 void client(const char * ipaddr){

@@ -1,0 +1,6 @@
+void InitializeSSL()
+void DestroySSL()
+void ShutdownSSL()
+void UseSSL(int socketfd)
+int ReadSSl(char buf, int len2read)
+void WriteSSl(char *str, int len)

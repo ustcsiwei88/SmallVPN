@@ -1,7 +1,7 @@
-// #include <openssl/applink.c>
-#include </usr/local/include/openssl/bio.h>
-#include </usr/local/include/openssl/ssl.h>
-#include </usr/local/include/openssl/err.h>
+//#include <openssl/applink.c>
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include<sys/socket.h>
 #include<stdio.h>
 #include<string.h>
@@ -78,7 +78,8 @@ void server()
 
 void client()
 {
-	unsigned int clilen;
+    printf("111");
+    unsigned int clilen;
     InitializeSSL();
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd< 0)

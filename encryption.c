@@ -1,7 +1,7 @@
-#include <openssl/applink.c>
-#include <openssl/bio.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+// #include <openssl/applink.c>
+#include </usr/local/include/openssl/bio.h>
+#include </usr/local/include/openssl/ssl.h>
+#include </usr/local/include/openssl/err.h>
 #include<sys/socket.h>
 #include<stdio.h>
 #include<string.h>
@@ -12,7 +12,7 @@
 int sockfd, newsockfd;
 SSL_CTX *sslctx;
 SSL *cSSL;
-char wrbuffer[2048]
+char wrbuffer[2048];
 
 void InitializeSSL()
 {
@@ -44,21 +44,11 @@ void UseSSL(int socketfd)
     cSSL = SSL_new(sslctx);
     SSL_set_fd(cSSL, socketfd);
     //SSL Accept portion. All reads and writes must use SSL
-    ssl_err = SSL_accept(cSSL);
+    int ssl_err = SSL_accept(cSSL);
     if(ssl_err <= 0)
     {
         ShutdownSSL();
     }
-}
-
-int ReadSSl(char buf, int len2read)
-{
-    SSL_read(cSSL, *buf, len2read);
-}
-
-void WriteSSl(char *str, int len)
-{
-    SSL_write(cSSL, str, len);
 }
 
 void server()
@@ -70,51 +60,68 @@ void server()
 		printf("Socket failed\n");
 		exit(1);
     }
-    struct sockaddr_in saiServerAddress;
-    bzero((char *) &saiServerAddress, sizeof(saiServerAddress));
-    saiServerAddress.sin_family = AF_INET;
-    saiServerAddress.sin_addr.s_addr = serv_addr;
-    saiServerAddress.sin_port = htons(8080);
+    struct sockaddr_in sa, ca; 
+    unsigned int clilen;
+    bzero((char *) &sa, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = INADDR_ANY;
+    sa.sin_port = htons(8080);
 
-    bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    bind(sockfd, (struct sockaddr *) &sa, sizeof(sa));
 
     listen(sockfd,5);
-    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+    newsockfd = accept(sockfd, (struct sockaddr *) &ca, &clilen);
     UseSSL(newsockfd);
-    SSL_write(cSSL, "Hello", strlen("Hello")));
+    SSL_write(cSSL, "Hello", strlen("Hello"));
     ShutdownSSL();
 }
 
 void client()
 {
-        InitializeSSL();
+	unsigned int clilen;
+    InitializeSSL();
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd< 0)
     {
 		printf("Socket failed\n");
 		exit(1);
     }
-    struct sockaddr_in saiServerAddress;
-    bzero((char *) &saiServerAddress, sizeof(saiServerAddress));
-    saiServerAddress.sin_family = AF_INET;
-    saiServerAddress.sin_addr.s_addr = serv_addr;
-    saiServerAddress.sin_port = htons(8080);
+    struct sockaddr_in sa, ca;
+    bzero((char *) &sa, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = INADDR_ANY;
+    sa.sin_port = htons(8080);
 
-    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
+    if(inet_pton(AF_INET, "127.0.0.1", &sa.sin_addr)<=0)  
     { 
         printf("\nInvalid address/ Address not supported \n"); 
-        return -1; 
+        exit(1); 
     } 
 
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
+    if (connect(sockfd, (struct sockaddr *)&sa, sizeof(sa)) < 0) 
     { 
         printf("\nConnection Failed \n"); 
-        return -1; 
+        exit(1); 
     }
 
-    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+    newsockfd = accept(sockfd, (struct sockaddr *) &ca, &clilen);
     UseSSL(newsockfd);
-    res = SSL_write(cSSL, wrbuffer, sizeof(wrbuffer) - 1));
+    int res = SSL_write(cSSL, wrbuffer, sizeof(wrbuffer) - 1);
 	printf("Got %d chars :%s\n", res, wrbuffer);
     ShutdownSSL();   
+}
+
+int main(int argc, char* argv[]){
+	if(argc<2 || (argc==2 && argv[1][0] == '1')){
+		printf("Argument: 1 (client) server ip addr or 0 (server)\n");
+		exit(1);
+	}
+	if(argv[1][0]=='0'){
+		printf("running server now\n");
+		server();
+	}else if(argv[1][0]=='1'){
+		printf("running client now\n");
+		client();
+	}
+	return 0;
 }

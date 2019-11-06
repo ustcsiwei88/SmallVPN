@@ -41,7 +41,7 @@ void UseSSL(int socketfd)
 
     int use_prv = SSL_CTX_use_PrivateKey_file(sslctx, "/serverCertificate.pem", SSL_FILETYPE_PEM);
 
-    cSSL = SSL_new(sslctx);
+    cSSL= SSL_new(sslctx);
     SSL_set_fd(cSSL, socketfd);
     //SSL Accept portion. All reads and writes must use SSL
     int ssl_err = SSL_accept(cSSL);
@@ -51,9 +51,31 @@ void UseSSL(int socketfd)
     }
 }
 
+void ShowCerts(SSL* ssl)
+{
+    X509 *cert;
+    char *line;
+    cert = SSL_get_peer_certificate(ssl); /* get the server's certificate */
+    if ( cert != NULL )
+    {
+        printf("Server certificates:\n");
+        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+        printf("Subject: %s\n", line);
+        free(line);       /* free the malloc'ed string */
+        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+        printf("Issuer: %s\n", line);
+        free(line);       /* free the malloc'ed string */
+        X509_free(cert);     /* free the malloc'ed certificate copy */
+    }
+    else
+        printf("Info: No client certificates configured.\n");
+}
+
 void server()
 {
+    printf("111");
     InitializeSSL();
+    printf("222");
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd< 0)
     {
@@ -72,22 +94,28 @@ void server()
     listen(sockfd,5);
     newsockfd = accept(sockfd, (struct sockaddr *) &ca, &clilen);
     UseSSL(newsockfd);
+    ShowCerts(cSSL);    
     SSL_write(cSSL, "Hello", strlen("Hello"));
+    printf("send msg sucessfully.\n");    
     ShutdownSSL();
 }
 
 void client()
 {
-    printf("111");
-    unsigned int clilen;
-    InitializeSSL();
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    
+    SSL_load_error_strings();
+    // init CTX
+    sslctx = SSL_CTX_new( SSLv23_server_method());
+    // open connection
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd< 0)
     {
 		printf("Socket failed\n");
 		exit(1);
     }
-    struct sockaddr_in sa, ca;
+    struct sockaddr_in sa;
     bzero((char *) &sa, sizeof(sa));
     sa.sin_family = AF_INET;
     sa.sin_addr.s_addr = INADDR_ANY;
@@ -104,24 +132,21 @@ void client()
         printf("\nConnection Failed \n"); 
         exit(1); 
     }
-
-    newsockfd = accept(sockfd, (struct sockaddr *) &ca, &clilen);
-    UseSSL(newsockfd);
-    int res = SSL_write(cSSL, wrbuffer, sizeof(wrbuffer) - 1);
-	printf("Got %d chars :%s\n", res, wrbuffer);
+    ShowCerts(cSSL);
+    int res = SSL_read(cSSL, wrbuffer, sizeof(wrbuffer));
+    wrbuffer[res] = 0;
+    printf("Got %d chars :%s\n", res, wrbuffer);
+    SSL_CTX_free(sslctx);    
     ShutdownSSL();   
 }
 
 int main(int argc, char* argv[]){
-	if(argc<2 || (argc==2 && argv[1][0] == '1')){
-		printf("Argument: 1 (client) server ip addr or 0 (server)\n");
-		exit(1);
-	}
 	if(argv[1][0]=='0'){
 		printf("running server now\n");
+		printf("000");
 		server();
 	}else if(argv[1][0]=='1'){
-		printf("running client now\n");
+		printf("russsnning client now\n");
 		client();
 	}
 	return 0;

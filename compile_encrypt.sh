@@ -1,1 +1,1 @@
-gcc encryption.c -o encryption -L/usr/local/ssl/lib -lssl -lcrypto
+sudo gcc encryption.c -Wall -O0 -g3 -std=c99 -lcrypto -lssl -o encryption

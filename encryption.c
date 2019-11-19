@@ -1,153 +1,191 @@
-//#include <openssl/applink.c>
-#include <openssl/bio.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include<sys/socket.h>
-#include<stdio.h>
-#include<string.h>
-#include <stdlib.h> 
-#include <netinet/in.h> 
-#include <unistd.h> 
+#include "encryption.h"
 
-int sockfd, newsockfd;
-SSL_CTX *sslctx;
-SSL *cSSL;
-char wrbuffer[2048];
-
-void InitializeSSL()
+void socket_server()
 {
-    SSL_load_error_strings();
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
+    char str[INET_ADDRSTRLEN];
+    int port = 10010;
+
+    int servfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (servfd < 0)
+        die("socket()");
+
+    int enable = 1;
+    if (setsockopt(servfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0)
+        die("setsockopt(SO_REUSEADDR)");
+
+    /* Specify socket address */
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(port);
+
+    if (bind(servfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+        die("bind()");
+
+    if (listen(servfd, 10) < 0)
+        die("listen()");
+
+    int clientfd;
+    struct sockaddr_in peeraddr;
+    socklen_t peeraddr_len = sizeof(peeraddr);
+
+    struct pollfd fdset[2];
+    memset(&fdset, 0, sizeof(fdset));
+
+    int new_fd = open("foobar.txt", O_RDWR);
+
+    // fdset[0].fd = STDIN_FILENO;
+    fdset[0].fd = new_fd;
+    fdset[0].events = POLLIN;
+
+    ssl_init("server.crt", "server.key");
+
+    while (1) {
+        printf("waiting for next connection on port %d\n", port);
+
+        clientfd = accept(servfd, (struct sockaddr *)&peeraddr, &peeraddr_len);
+        if (clientfd < 0)
+            die("accept()");
+
+        ssl_client_init(&client, clientfd, SSLMODE_SERVER);
+
+        inet_ntop(peeraddr.sin_family, &peeraddr.sin_addr, str, INET_ADDRSTRLEN);
+        printf("new connection from %s:%d\n", str, ntohs(peeraddr.sin_port));
+
+        fdset[1].fd = clientfd;
+
+        /* event loop */
+
+        fdset[1].events = POLLERR | POLLHUP | POLLNVAL | POLLIN;
+#ifdef POLLRDHUP
+        fdset[1].events |= POLLRDHUP;
+#endif
+
+        while (1) {
+            fdset[1].events &= ~POLLOUT;
+            fdset[1].events |= (ssl_client_want_write(&client)? POLLOUT : 0);
+
+            write(new_fd, "hello client\n", strlen("hello client\n")); 
+
+            int nready = poll(&fdset[0], 2, -1);
+
+            if (nready == 0)
+                continue; /* no fd ready */
+
+            int revents = fdset[1].revents;
+            if (revents & POLLIN)
+                if (do_sock_read() == -1)
+                break;
+            if (revents & POLLOUT)
+                if (do_sock_write() == -1)
+                break;
+            if (revents & (POLLERR | POLLHUP | POLLNVAL))
+                break;
+#ifdef POLLRDHUP
+            if (revents & POLLRDHUP)
+                break;
+#endif
+            if (fdset[0].revents & POLLIN)
+                do_read(new_fd);
+            if (client.encrypt_len>0)
+                do_encrypt();
+        }
+
+        close(fdset[1].fd);
+        ssl_client_cleanup(&client);
+    }   
 }
 
-void DestroySSL()
+void socket_client()
 {
-    ERR_free_strings();
-    EVP_cleanup();
+    int port = 10010;
+    char* host="127.0.0.1";
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        die("socket()");
+
+    /* Specify socket address */
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, host, &(addr.sin_addr)) <= 0)
+        die("inet_pton()");
+
+    if (connect(sockfd, (struct sockaddr*) &addr, sizeof(addr)) < 0)
+        die("connect()");
+
+    struct pollfd fdset[2];
+    memset(&fdset, 0, sizeof(fdset));
+
+
+    // fdset[0].fd = STDIN_FILENO;
+    int new_fd = open("foobar.txt", O_RDWR);
+    fdset[0].fd = new_fd;
+    fdset[0].events = POLLIN;
+
+    // ssl_init("/serverCertificate.pem","/privkey.pem");
+    ssl_init(0,0);
+    ssl_client_init(&client, sockfd, SSLMODE_CLIENT);
+
+    fdset[1].fd = sockfd;
+    fdset[1].events = POLLERR | POLLHUP | POLLNVAL | POLLIN;
+#ifdef POLLRDHUP
+    fdset[1].events |= POLLRDHUP;
+#endif
+
+    /* event loop */
+
+    do_ssl_handshake();
+
+    while (1) {
+        fdset[1].events &= ~POLLOUT;
+        fdset[1].events |= ssl_client_want_write(&client)? POLLOUT:0;
+        write(new_fd, "hello server\n", strlen("hello server\n")); 
+        int nready = poll(&fdset[0], 2, -1);
+
+        if (nready == 0)
+        continue; /* no fd ready */
+
+        int revents = fdset[1].revents;
+        if (revents & POLLIN)
+        if (do_sock_read() == -1)
+            break;
+        if (revents & POLLOUT)
+        if (do_sock_write() == -1)
+            break;
+        if (revents & (POLLERR | POLLHUP | POLLNVAL))
+        break;
+#ifdef POLLRDHUP
+        if (revents & POLLRDHUP)
+        break;
+#endif
+        if (fdset[0].revents & POLLIN)
+        // do_stdin_read();
+        do_read(new_fd);
+        if (client.encrypt_len>0)
+        do_encrypt();
+    }
+
+    close(fdset[1].fd);
+    ssl_client_cleanup(&client); 
 }
 
-void ShutdownSSL()
+int main(int argc, char* argv[])
 {
-    SSL_shutdown(cSSL);
-    SSL_free(cSSL);
-}
-
-void UseSSL(int socketfd)
-{
-    sslctx = SSL_CTX_new( SSLv23_server_method());
-    SSL_CTX_set_options(sslctx, SSL_OP_SINGLE_DH_USE);
-    int use_cert = SSL_CTX_use_certificate_file(sslctx, "/serverCertificate.pem" , SSL_FILETYPE_PEM);
-
-    int use_prv = SSL_CTX_use_PrivateKey_file(sslctx, "/serverCertificate.pem", SSL_FILETYPE_PEM);
-
-    cSSL= SSL_new(sslctx);
-    SSL_set_fd(cSSL, socketfd);
-    //SSL Accept portion. All reads and writes must use SSL
-    int ssl_err = SSL_accept(cSSL);
-    if(ssl_err <= 0)
+    if(argc < 2)
     {
-        ShutdownSSL();
-    }
-}
-
-void ShowCerts(SSL* ssl)
-{
-    X509 *cert;
-    char *line;
-    cert = SSL_get_peer_certificate(ssl); /* get the server's certificate */
-    if ( cert != NULL )
-    {
-        printf("Server certificates:\n");
-        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        printf("Subject: %s\n", line);
-        free(line);       /* free the malloc'ed string */
-        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        printf("Issuer: %s\n", line);
-        free(line);       /* free the malloc'ed string */
-        X509_free(cert);     /* free the malloc'ed certificate copy */
-    }
-    else
-        printf("Info: No client certificates configured.\n");
-}
-
-void server()
-{
-    printf("111");
-    InitializeSSL();
-    printf("222");
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd< 0)
-    {
-		printf("Socket failed\n");
-		exit(1);
-    }
-    struct sockaddr_in sa, ca; 
-    unsigned int clilen;
-    bzero((char *) &sa, sizeof(sa));
-    sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = INADDR_ANY;
-    sa.sin_port = htons(8080);
-
-    bind(sockfd, (struct sockaddr *) &sa, sizeof(sa));
-
-    listen(sockfd,5);
-    newsockfd = accept(sockfd, (struct sockaddr *) &ca, &clilen);
-    UseSSL(newsockfd);
-    ShowCerts(cSSL);    
-    SSL_write(cSSL, "Hello", strlen("Hello"));
-    printf("send msg sucessfully.\n");    
-    ShutdownSSL();
-}
-
-void client()
-{
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
-    
-    SSL_load_error_strings();
-    // init CTX
-    sslctx = SSL_CTX_new( SSLv23_server_method());
-    // open connection
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd< 0)
-    {
-		printf("Socket failed\n");
-		exit(1);
-    }
-    struct sockaddr_in sa;
-    bzero((char *) &sa, sizeof(sa));
-    sa.sin_family = AF_INET;
-    sa.sin_addr.s_addr = INADDR_ANY;
-    sa.sin_port = htons(8080);
-
-    if(inet_pton(AF_INET, "127.0.0.1", &sa.sin_addr)<=0)  
-    { 
-        printf("\nInvalid address/ Address not supported \n"); 
-        exit(1); 
-    } 
-
-    if (connect(sockfd, (struct sockaddr *)&sa, sizeof(sa)) < 0) 
-    { 
-        printf("\nConnection Failed \n"); 
-        exit(1); 
-    }
-    ShowCerts(cSSL);
-    int res = SSL_read(cSSL, wrbuffer, sizeof(wrbuffer));
-    wrbuffer[res] = 0;
-    printf("Got %d chars :%s\n", res, wrbuffer);
-    SSL_CTX_free(sslctx);    
-    ShutdownSSL();   
-}
-
-int main(int argc, char* argv[]){
+        printf("server 0, client 1\n");
+        exit(1);
+    }   
 	if(argv[1][0]=='0'){
 		printf("running server now\n");
-		printf("000");
-		server();
+		socket_server();
 	}else if(argv[1][0]=='1'){
 		printf("russsnning client now\n");
-		client();
+		socket_client();
 	}
 	return 0;
 }

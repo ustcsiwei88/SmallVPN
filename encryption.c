@@ -88,6 +88,7 @@ void socket_server()
 #endif
             if (fdset[0].revents & POLLIN)
                 do_read(new_fd);
+
             if (client.encrypt_len>0)
                 do_encrypt();
         }
@@ -119,6 +120,7 @@ void socket_client()
 
     struct pollfd fdset[2];
     memset(&fdset, 0, sizeof(fdset));
+
 
 
     // fdset[0].fd = STDIN_FILENO;

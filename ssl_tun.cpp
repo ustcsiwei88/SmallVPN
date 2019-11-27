@@ -32,7 +32,6 @@ int alloc(){
 }
 
 void build_server(){
-	printf("111\n");
 	// fd: tun fd
 	// sockfd: socket fd
 	// connfd: connection fd
@@ -184,9 +183,11 @@ int main(int argc, char* argv[]){
 		exit(1);
 	}
 	tunfd = alloc();
+	if (tunfd<0){
+		die("alloc()");
+	}
 	//printf("%d, %s", argc, argv[1]);
 	if(argv[1][0]=='0'){
-		printf("22222222\n");
 		printf("running server now\n");
 		build_server();
 	}else if(argv[1][0]=='1'){

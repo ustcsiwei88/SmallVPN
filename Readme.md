@@ -17,11 +17,4 @@ $ rm -f server.csr
 ```
 
 Install openssl (in root):
-```
-$ wget http://zlib.net/zlib-1.2.8.tar.gz
-$ tar -zxf zlib-1.2.8.tar.gz
-$ cd zlib-1.2.8/
-$ ./configure  —-prefix=/usr/local
-$ make
-$ make install
-```
+check https://www.howtoforge.com/tutorial/how-to-install-openssl-from-source-on-linux/ for help.

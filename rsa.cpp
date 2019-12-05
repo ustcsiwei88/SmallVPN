@@ -24,8 +24,8 @@ void generate(int keysize){
 	mpz_init(key_p); 
 	mpz_init(key_q);
  
-	mpz_urandomb(key_p, grt, 1024);
-	mpz_urandomb(key_q, grt, 1024);
+	mpz_urandomb(key_p, grt, keysize);
+	mpz_urandomb(key_q, grt, keysize);
     //generate primes p,q
 	mpz_nextprime(key_p, key_p);  
 	mpz_nextprime(key_q, key_q);
@@ -56,12 +56,16 @@ void encrtpt(string str){
     {
         char x = str.at(i);
         int num = int(x);
-        M_str = M_str + "0" + to_string(num);
+		if(num>=100){
+			M_str += to_string(num);
+		}
+		else{
+        	M_str = M_str + "0" + to_string(num);
+		}
     }
     // cout<<M_str.c_str()<<endl;
     mpz_init_set_str(M, M_str.c_str(),16);
 	mpz_init(C);
-	mpz_init_set_ui(M, 1234);
     //C=M^e mod n;
 	mpz_powm(C, M, key_e, key_n);  
 }
@@ -109,52 +113,19 @@ void destroy(){
 
 int main()
 {
-    string str = "ab67y8c";
-    string M_str = "";
-    for (int i = 0; i < str.length(); i++)
-    {
-        char x = str.at(i);
-        int num = int(x);
-		if(num>=100){
-			M_str += to_string(num);
-		}
-		else{
-        	M_str = M_str + "0" + to_string(num);
-		}
-    }
-	int len = M_str.length();
-    cout<<M_str.c_str()<<endl;
-    mpz_init_set_str(M, M_str.c_str(),16);
-    gmp_printf("%ZX\n", M);
-	char encrtpted_char[200];
-	mpz_get_str(encrtpted_char, 16, M);
-	string encrtpted_str = encrtpted_char;
-	int en_len = encrtpted_str.length();
+    string str = "asdvhv,as123274o2ryhujsbcgug123qwugdb2v1eg1271guhbad";
+	cout<<"the plaintext is "<< str << endl;
+	generate(1024);
+	encrtpt(str);
+	gmp_printf("%s %ZX\n", "the cipertxt is", C);
 	stack<char> s;
-	for (int k = 0; k < en_len; k++){
-		if (k % 3 ==0 && k > 0){
-			string tmp_str = encrtpted_str.substr(en_len-k,3);
-			if (tmp_str.find("0") == 0){
-				s.push(char(stoi(tmp_str.substr(1,2))));
-				// cout<<char(stoi(tmp_str.substr(1,2)))<<endl;
-			}
-			else{
-				s.push(char(stoi(tmp_str)));
-				// cout<<char(stoi(tmp_str))<<endl;
-			}
-			if (en_len-k<=2){
-				s.push(char(stoi(encrtpted_str.substr(0,en_len-k))));
-				// cout<<char(stoi(encrtpted_str.substr(0,en_len-k)))<<endl;
-			}
-		}
-	}
+	s = decrtpt();
 	while (!s.empty()) 
     { 
-        cout << ' ' << s.top(); 
+        cout << " "<< s.top(); 
         s.pop(); 
     }
-
-	// int c = 50;
-	// cout<<char(c)<<endl;
+	cout<<" "<<endl;
+	destroy();
     return 0;
 }

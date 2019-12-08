@@ -33,10 +33,10 @@ void socket_server()
     struct pollfd fdset[2];
     memset(&fdset, 0, sizeof(fdset));
 
-    int new_fd = open("foobar.txt", O_RDWR);
+    // int new_fd = open("foobar.txt", O_RDWR);
 
-    // fdset[0].fd = STDIN_FILENO;
-    fdset[0].fd = new_fd;
+    fdset[0].fd = STDIN_FILENO;
+    // fdset[0].fd = new_fd;
     fdset[0].events = POLLIN;
 
     ssl_init("server.crt", "server.key");
@@ -87,7 +87,8 @@ void socket_server()
                 break;
 #endif
             if (fdset[0].revents & POLLIN)
-                do_read(new_fd);
+                // do_read(new_fd);
+                do_stdin_read();
 
             if (client.encrypt_len>0)
                 do_encrypt();
@@ -123,9 +124,9 @@ void socket_client()
 
 
 
-    // fdset[0].fd = STDIN_FILENO;
-    int new_fd = open("foobar.txt", O_RDWR);
-    fdset[0].fd = new_fd;
+    fdset[0].fd = STDIN_FILENO;
+    // int new_fd = open("foobar.txt", O_RDWR);
+    // fdset[0].fd = new_fd;
     fdset[0].events = POLLIN;
 
     // ssl_init("/serverCertificate.pem","/privkey.pem");
@@ -145,7 +146,7 @@ void socket_client()
     while (1) {
         fdset[1].events &= ~POLLOUT;
         fdset[1].events |= ssl_client_want_write(&client)? POLLOUT:0;
-        write(new_fd, "hello server\n", strlen("hello server\n")); 
+        // write(new_fd, "hello server\n", strlen("hello server\n")); 
         int nready = poll(&fdset[0], 2, -1);
 
         if (nready == 0)
@@ -165,8 +166,8 @@ void socket_client()
         break;
 #endif
         if (fdset[0].revents & POLLIN)
-        // do_stdin_read();
-        do_read(new_fd);
+        do_stdin_read();
+        // do_read(new_fd);
         if (client.encrypt_len>0)
         do_encrypt();
     }

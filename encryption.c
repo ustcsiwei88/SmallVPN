@@ -101,7 +101,7 @@ void socket_server()
 void socket_client()
 {
     int port = 10010;
-    char* host="127.0.0.1";
+    char* host="165.227.181.114";
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
 		printf("running server now\n");
 		socket_server();
 	}else if(argv[1][0]=='1'){
-		printf("russsnning client now\n");
+		printf("running client now\n");
 		socket_client();
 	}
 	return 0;

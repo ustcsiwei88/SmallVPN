@@ -22,6 +22,7 @@ int alloc(){
 		printf("Open tun failed\n");
 		exit(1);
 	}
+	printf("alloc succeed");
 	ifr.ifr_flags=IFF_TUN;
 	strncpy(ifr.ifr_name, "tun0", IFNAMSIZ);
 	if((err=ioctl(fd, TUNSETIFF, (void*)&ifr))<0){

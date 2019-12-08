@@ -66,7 +66,7 @@ void socket_server()
             fdset[1].events &= ~POLLOUT;
             fdset[1].events |= (ssl_client_want_write(&client)? POLLOUT : 0);
 
-            write(new_fd, "hello client\n", strlen("hello client\n")); 
+            // write(new_fd, "hello client\n", strlen("hello client\n")); 
 
             int nready = poll(&fdset[0], 2, -1);
 

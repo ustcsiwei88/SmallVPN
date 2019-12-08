@@ -17,9 +17,11 @@
 
 //#include<bits/stdc++.h>
 //using namespace std;
+ 
+#define MAX_BUFF 2048
 
-char rdbuff[2048];
-char wrbuff[2048];
+char rdbuff[MAX_BUFF];
+char wrbuff[MAX_BUFF];
 
 int connfd;//connection fd
 int tunfd;
@@ -44,15 +46,18 @@ void* writer(void* argument){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(tunfd, wrbuff/*+pos*/, 2048/*-pos*/);
-		if(sz<=0){
+		sz = read(tunfd, wrbuff/*+pos*/, MAX_BUFF /*-pos*/);
+		if(sz==0){
+			printf("writer terminated\n");
 			break;
 		}
-		int sz2 = write(connfd, wrbuff/* + pos*/, sz);
-		pos+=sz;
-		printf("read %d from tun\n", sz);
-		printf("write %d to socket\n", sz2);
-		if(pos==2048) pos=0;
+		// printf("writer sz %d\n", sz);
+		write(connfd, &sz, sizeof(int));
+		unsigned int sz2 = write(connfd, wrbuff/* + pos*/, sz);
+		// pos+=sz;
+		// printf("read %d from tun\n", sz);
+		// printf("write %d to socket\n", sz2);
+		// if(pos==2048) pos=0;
 	}
 }
 void server(){
@@ -87,21 +92,26 @@ void server(){
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
-	int sz;
+	int sz, sz2;
 	while(1){
-		printf("Wanna receive stuffs\n");
-		sz = read(connfd, rdbuff/*+pos*/, 2048 /*- pos*/);
-		if(sz==0){
+		// printf("Wanna receive stuffs\n");
+		if(read(connfd, &sz, sizeof(int))==0){
 			printf("Connection terminated\n");
 			close(connfd);
 			close(sockfd);
 			break;
 		}
-		printf("receive sized %d\n", sz);
-		write(tunfd, rdbuff/*+pos*/, sz);
-		pos+=sz;
-		if(pos==2048) pos=0;
-		printf("read %d %c",sz, rdbuff[0]);
+		// printf("sz = %d\n", sz);
+		pos=0;
+		while(pos<sz){
+			pos+=read(connfd, rdbuff + pos, sz-pos /*- pos*/);
+		}
+		// printf("receive sized %d\n", sz2);
+		pos=0;
+		while(pos<sz && pos>=0){
+			pos+=write(tunfd, rdbuff + pos, sz-pos);
+		}
+		// printf("write to tun %d\n",sz2);
 	}
 }
 void client(const char * ipaddr){
@@ -134,18 +144,28 @@ void client(const char * ipaddr){
 	int pos=0;
 	int sz;
 	while(1){
-		printf("Wanna receive stuffs\n");
-		sz = read(connfd, rdbuff/*+pos*/, 2048 /*- pos*/);
-		if(sz<=0){
+		// printf("Wanna receive stuffs\n");
+		if(read(connfd, &sz, sizeof(int))==0){
 			printf("connection terminated\n");
 			close(connfd);
 			close(sockfd);
 			break;
 		}
-		write(tunfd, rdbuff/*+pos*/, sz);
-		printf("received sized %d\n", sz);
-		pos+=sz;
-		if(pos==2048) pos=0;
+		pos=0;
+		// printf("sz = %d\n", sz);
+		while(pos<sz){
+			// printf("reading %d\n", pos);
+			pos+=read(connfd, rdbuff+pos, sz-pos);
+		}
+		pos=0;
+		while(pos<sz && pos>=0){
+			// printf("HERE %d %d\n",sz, pos);
+			pos+=write(tunfd, rdbuff+pos, sz-pos);
+		}
+		// printf("client write finished\n");
+		// printf("received sized %d\n", sz);
+		// pos+=sz;
+		// if(pos==2048) pos=0;
 		//printf("read %d %c",sz, rdbuff[0]);
 	}
 }

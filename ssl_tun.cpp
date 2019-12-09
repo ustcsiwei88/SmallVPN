@@ -22,7 +22,7 @@ int alloc(){
 		printf("Open tun failed\n");
 		exit(1);
 	}
-	printf("alloc succeed");
+	printf("alloc succeed\n");
 	ifr.ifr_flags=IFF_TUN;
 	strncpy(ifr.ifr_name, "tun0", IFNAMSIZ);
 	if((err=ioctl(fd, TUNSETIFF, (void*)&ifr))<0){
@@ -138,7 +138,7 @@ void build_client(const char * ipaddr){
 	struct pollfd fdset[2];
 	memset(&fdset, 0, sizeof(fdset));
 	fdset[0].fd = tunfd;
-	fdset[0].events = POLLIN;
+	fdset[0].events = POLLERR | POLLHUP | POLLNVAL | POLLIN;
 	ssl_init(0,0);
     ssl_client_init(&client, sockfd, SSLMODE_CLIENT);
 	fdset[1].fd = sockfd;
@@ -147,11 +147,9 @@ void build_client(const char * ipaddr){
     fdset[1].events |= POLLRDHUP;
 #endif
 	do_ssl_handshake();
-
 	while(1){
 		fdset[1].events &= ~POLLOUT;
         fdset[1].events |= ssl_client_want_write(&client)? POLLOUT:0;
-
         int nready = poll(&fdset[0], 2, -1);
 		if (nready == 0)
         	continue; 
@@ -169,8 +167,12 @@ void build_client(const char * ipaddr){
         if (revents & POLLRDHUP)
         	break;
 #endif
-        if (fdset[0].revents & POLLIN)
+
+        if (fdset[0].revents & POLLIN){
         	do_read(tunfd);
+			printf("do_read()\n");
+		}	
+
         if (client.encrypt_len>0)
         	do_encrypt();
 	}

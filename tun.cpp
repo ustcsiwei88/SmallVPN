@@ -46,14 +46,15 @@ void* writer(void* argument){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(tunfd, wrbuff/*+pos*/, MAX_BUFF /*-pos*/);
-		if(sz==0){
+		*((int*)(wrbuff)) = read(tunfd, wrbuff + sizeof(int)/*+pos*/, MAX_BUFF - sizeof(int) /*-pos*/);
+		if(*((int*)(wrbuff))==0){
 			printf("writer terminated\n");
 			break;
 		}
 		// printf("writer sz %d\n", sz);
-		write(connfd, &sz, sizeof(int));
-		unsigned int sz2 = write(connfd, wrbuff/* + pos*/, sz);
+		//write(connfd, &sz, sizeof(int));
+		
+		unsigned int sz2 = write(connfd, wrbuff/* + pos*/, *((int*)(wrbuff)) + sizeof(int));
 		// pos+=sz;
 		// printf("read %d from tun\n", sz);
 		// printf("write %d to socket\n", sz2);

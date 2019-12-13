@@ -1,26 +1,25 @@
-###
-This is the homepage or WhereRU, we have implemented a highly performant software
+### WhereRU
 
-With a naive 
-$make tun_naive 
+This is the homepage or WhereRU. It is implemented in userspace and quite simple, but it's highly performant.
 
-With not encrpytion
-$make tun
+With a naive encryption: naive_tun
 
-The SSL version is still buggy: ssl_tun.cpp and tun_ssl.cpp
+With no encrpytion: tun
+
+The SSL version is still buggy: ssl_tun and tun_ssl
 
 Here is how to run WhereRU (with tun_naive for example)
 
 Server
 ```
 $make tun_naive
-$sudo ./tun 0
+$sudo ./tun_naive 0
 ```
 
 Client
 ```
 $make tun_naive
-$sudo ./tun 1 [Server IP]
+$sudo ./tun_naive 1 [Server IP]
 ```
 
 Then the secure connection is established, run the configuration scripts now

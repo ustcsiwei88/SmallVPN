@@ -1,3 +1,5 @@
 *.swp
 *.out
 tun
+tun_ssl
+tun_naive

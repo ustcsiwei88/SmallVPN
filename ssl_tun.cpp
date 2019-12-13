@@ -121,13 +121,14 @@ void* writer(void* argument){
 			break;
 		}
 		// printf("writer sz %d\n", sz);
-		write(connfd, &sz, sizeof(int));
-        std::string src = std::string(wrbuff);
+        std::string src = std::string(wrbuff, sz);
         std::string encrypted_str;
         encrypted_str = rsa_pub_encrypt(src, Key[0]);
         for (int i = 0; i < encrypted_str.length(); i++){
             encrypted_buff[i] = encrypted_str[i]; 
         }
+		sz = encrypted_str.size();
+		write(connfd, &sz, sizeof(int));
 		unsigned int sz2 = write(connfd, encrypted_buff/* + pos*/, sz);
 		// pos+=sz;
 		// printf("read %d from tun\n", sz);
@@ -183,13 +184,14 @@ void server(){
 			pos+=read(connfd, rdbuff + pos, sz-pos /*- pos*/);
 		}
 		// printf("receive sized %d\n", sz2);
-        std::string src = std::string(rdbuff);
+        std::string src = std::string(rdbuff,sz);
         std::string decrypted_str;
         decrypted_str = rsa_pri_decrypt(src, Key[1]);
         for (int i = 0; i < decrypted_str.length(); i++){
             decrypted_buff[i] = decrypted_str[i]; 
         }
 		pos=0;
+		sz = decrypted_str.size();
 		while(pos<sz && pos>=0){
 			pos+=write(tunfd, decrypted_buff + pos, sz-pos);
 		}
@@ -239,16 +241,17 @@ void client(const char * ipaddr){
 			// printf("reading %d\n", pos);
 			pos+=read(connfd, rdbuff+pos, sz-pos);
 		}
-        std::string src = std::string(rdbuff);
+        std::string src = std::string(rdbuff, sz);
         std::string decrypted_str;
         decrypted_str = rsa_pri_decrypt(src, Key[1]);
         for (int i = 0; i < decrypted_str.length(); i++){
             decrypted_buff[i] = decrypted_str[i]; 
         }
 		pos=0;
+		sz = decrypted_str.size();
 		while(pos<sz && pos>=0){
 			// printf("HERE %d %d\n",sz, pos);
-			pos+=write(tunfd, rdbuff+pos, sz-pos);
+			pos+=write(tunfd, decrypted_buff+pos, sz-pos);
 		}
 		// printf("client write finished\n");
 		// printf("received sized %d\n", sz);

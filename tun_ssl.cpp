@@ -25,13 +25,19 @@ using namespace std;
  
 #define MAX_BUFF 2048
 
+#define CA_FILE "certs/domain.crt"
+#define CA_DIR "certs"
 char rdbuff[MAX_BUFF];
 char wrbuff[MAX_BUFF];
 
 int connfd;//connection fd
 int tunfd;
 
+int PORT;
+
 BIO *bio;
+SSL *ssl = NULL;
+SSL_CTX *ctx = NULL;
 
 int alloc(){
 	struct ifreq ifr;
@@ -53,12 +59,12 @@ void* writer(void* argument){
 	int pos=0;
 	int sz;
 	while(1){
-		sz = read(tunfd, wrbuff + sizeof(int)/*+pos*/, MAX_BUFF - sizeof(int) /*-pos*/);
-		if(sz==0){
+		*((int*)(wrbuff)) = read(tunfd, wrbuff + sizeof(int)/*+pos*/, MAX_BUFF - sizeof(int) /*-pos*/);
+		if(*((int*)(wrbuff))==0){
 			printf("writer terminated\n");
 			break;
 		}
-
+		unsigned int sz2 = SSL_write(ssl, wrbuff/* + pos*/, *((int*)(wrbuff)) + sizeof(int));
 	}
 }
 void server(){
@@ -74,13 +80,13 @@ void server(){
 	}
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_family=AF_INET;
-	sa.sin_port=htons(10010);
+	sa.sin_port=htons(PORT);
 	sa.sin_addr.s_addr = INADDR_ANY;
 	if(bind(sockfd, (struct sockaddr*)&sa, sizeof(sa))<0){
 		printf("bind error\n");
 		exit(1);
 	}
-	if(listen(sockfd, 10)<0){
+	if(listen(sockfd, 1)<0){
 		printf("listen error\n");
 		exit(1);
 	}
@@ -90,22 +96,37 @@ void server(){
 		exit(1);
 	}
 	printf("Connection established, fd: %d\n", connfd);
+	// SSL_CTX_set_verify(ctx, SSL_VERIFY_, NULL);
+
+	ssl = SSL_new(ctx);
+	SSL_set_fd(ssl, connfd);
+	int err;
+	if((err=SSL_accept(ssl))<=0){
+		err = SSL_get_error(ssl, err);
+		printf("Hankshake failed %d\n", err);
+		exit(1);
+	}
+	printf("SSL connection established\n");
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
 	int sz, sz2;
 	while(1){
 		// printf("Wanna receive stuffs\n");
-		if(read(connfd, &sz, sizeof(int))==0){
+		if(SSL_read(ssl, &sz, sizeof(int))==0){
 			printf("Connection terminated\n");
+			SSL_shutdown(ssl);
+			SSL_free(ssl);
 			close(connfd);
 			close(sockfd);
 			break;
 		}
+		// printf("readsth %d\n", sz);
+
 		// printf("sz = %d\n", sz);
 		pos=0;
 		while(pos<sz){
-			pos+=read(connfd, rdbuff + pos, sz-pos /*- pos*/);
+			pos+=SSL_read(ssl, rdbuff + pos, sz-pos /*- pos*/);
 		}
 		// printf("receive sized %d\n", sz2);
 		pos=0;
@@ -119,24 +140,6 @@ void client(const char * ipaddr){
 	// fd: tun fd
 	// sockfd: socket fd
 	// connfd: connection fd
-/*	
-	bio = BIO_new_connect(ipaddr_port);
-	if (bio==NULL){
-		printf("bio new connect failed"); exit(1);
-	}
-
-	if(BIO_do_connect(bio)<=0){
-		printf("bio connect failed"); exit(1);
-	}
-	
-	
-	
-*/	
-	
-	
-	
-	
-	
 	
 	int sockfd;// connfd;
 	unsigned int len;
@@ -147,7 +150,7 @@ void client(const char * ipaddr){
 	}
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_family=AF_INET;
-	sa.sin_port=htons(10010);
+	sa.sin_port=htons(PORT);
 	//sa.sin_addr.s_addr=htonl(INADDR_ANY);
 	inet_pton(AF_INET, ipaddr, &sa.sin_addr);
 	printf("Connecting to %s ...\n", ipaddr);
@@ -159,23 +162,40 @@ void client(const char * ipaddr){
 	}
 	connfd = sockfd;
 	printf("Connection established, fd: %d\n", connfd);
+	
+	
+	// SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+	ssl = SSL_new(ctx);
+	SSL_set_fd(ssl, connfd);
+	int err;
+	if((err=SSL_connect(ssl))<=0){
+		//SSL_get_error();
+		err = SSL_get_error(ssl, err);
+		printf("Hankshake failed in connect %d\n", err);
+		exit(1);
+	}
+	printf("SSL connection established\n");
 	pthread_t th;
 	pthread_create(&th, NULL, writer, NULL);
 	int pos=0;
 	int sz;
 	while(1){
 		// printf("Wanna receive stuffs\n");
-		if(read(connfd, &sz, sizeof(int))==0){
+		if(SSL_read(ssl, &sz, sizeof(int))==0){
 			printf("connection terminated\n");
+			SSL_shutdown(ssl);
+			SSL_free(ssl);
 			close(connfd);
 			close(sockfd);
 			break;
 		}
+		printf("readsth %d\n", sz);
+
 		pos=0;
 		// printf("sz = %d\n", sz);
 		while(pos<sz){
 			// printf("reading %d\n", pos);
-			pos+=read(connfd, rdbuff+pos, sz-pos);
+			pos+=SSL_read(ssl, rdbuff+pos, sz-pos);
 		}
 		pos=0;
 		while(pos<sz && pos>=0){
@@ -189,23 +209,102 @@ void client(const char * ipaddr){
 		//printf("read %d %c",sz, rdbuff[0]);
 	}
 }
-int main(int argc, char* argv[]){
-	//cout<<argc<<endl;
-	if(argc<2 || argc==2 && argv[1][0] == '1'){
-		printf("Argument: 1 (client) server ip addr:port or 0 (server)\n");
+
+void init_openssl(){
+	SSL_library_init();
+	SSL_load_error_strings();
+	OpenSSL_add_ssl_algorithms();
+}
+
+SSL_CTX *create_context(int typ){
+	const SSL_METHOD *method;
+	SSL_CTX * res;
+	if(typ == 0) method = SSLv23_server_method();
+	else method = SSLv23_client_method();
+	ctx = SSL_CTX_new(method);
+	if(!ctx){
+		printf("Unable to create SSL context\n");
 		exit(1);
 	}
+	if(SSL_CTX_set_cipher_list(ctx, "AES128-SHA")<=0){
+		printf("Error in setting cypher list");
+		exit(1);
+	}
+	if(typ == 0){
+		if(SSL_CTX_use_certificate_file(ctx, "server.crt", SSL_FILETYPE_PEM)<=0){
+			printf("Using certificate file failed\n");
+			exit(1);
+		}
+		if(SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM)<=0){
+			printf("Using private key file failed\n");
+			exit(1);
+		}
+		// if(SSL_CTX_load_and_set_client_)
+
+	}else{
+		if(SSL_CTX_use_certificate_file(ctx, "client.crt", SSL_FILETYPE_PEM)<=0){
+			printf("Using certificate file failed\n");
+			exit(1);
+		}
+		if(SSL_CTX_use_PrivateKey_file(ctx, "client.key", SSL_FILETYPE_PEM)<=0){
+			printf("Using private key file failed\n");
+			exit(1);
+		}
+	}
+	if(SSL_CTX_check_private_key(ctx)==0){
+		printf("Private key does not match certificate public\n");
+		exit(1);
+	}
+
+	if(SSL_CTX_load_verify_locations(ctx, NULL, CA_DIR)<=0){
+		printf("Error loading verify location\n");
+		exit(1);
+	}
+	// if(typ==0) SSL_CTX_set_ecdh_auto(ctx, 1);
+	return ctx;
+}
+
+void configure_context(SSL_CTX *ctx){
+	// SSL_CTX_set_ecdh_auto(ctx, 1);
+	// SSL_CTX_set_ecdh_auto(ctx, 1);
+
+	// if(SSL_CTX_use_certificate_file(ctx, "domain.crt", SSL_FILETYPE_PEM)<=0){
+	// 	printf("Using certificate file failed\n");
+	// 	exit(1);
+	// }
+	// if(SSL_CTX_use_PrivateKey_file(ctx, "domain.key", SSL_FILETYPE_PEM)<=0){
+	// 	printf("Using private key file failed\n");
+	// 	exit(1);
+	// }
+
+	// if(SSL_CTX_check_private_key(ctx)==0){
+	// 	printf("Private key does not match certificate public\n");
+	// 	exit(1);
+	// }
+}
+
+int main(int argc, char* argv[]){
+	//cout<<argc<<endl;
+	if(argc<3 || argc==3 && argv[1][0] == '1'){
+		printf("Argument: 1 (client) server ip addr port or 0 port (server)\n");
+		exit(1);
+	}
+	PORT = atoi(argv[2]);
 	tunfd = alloc();
-	//printf("%d, %s", argc, argv[1]);
-	SSL_load_error_strings();
-	ERR_load_BIO_strings();
-	OpenSSL_add_all_algorithms();
+	
+	init_openssl();
+	ctx = create_context(argv[1][0]-'0');
+	// if(argv[1][0]=='0') 
+	configure_context(ctx);
+
 	if(argv[1][0]=='0'){
 		printf("running server now\n");
 		server();
 	}else if(argv[1][0]=='1'){
 		printf("running client now\n");
-		client(argv[2]);
+		client(argv[3]);
 	}
+	SSL_CTX_free(ctx);
+	EVP_cleanup();
 	return 0;
 }

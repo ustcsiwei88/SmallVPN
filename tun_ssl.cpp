@@ -189,7 +189,7 @@ void client(const char * ipaddr){
 			close(sockfd);
 			break;
 		}
-		printf("readsth %d\n", sz);
+		//printf("readsth %d\n", sz);
 
 		pos=0;
 		// printf("sz = %d\n", sz);

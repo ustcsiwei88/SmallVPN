@@ -20,11 +20,11 @@ $sudo ./tun_ssl [PORT] 0
 
 Client
 ```
-$make tun_naive
-$sudo ./tun_naive 1 [PORT] [Server IP]
+$make tun_ssl
+$sudo ./tun_ssl 1 [PORT] [Server IP]
 ```
 
-Then the secure connection is established, run the configuration scripts now
+Then the secure connection will be established, run the configuration scripts.
 
 Server
 ```

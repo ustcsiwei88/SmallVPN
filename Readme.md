@@ -15,7 +15,7 @@ Here is how to run WhereRU (with tun_ssl for example)
 Server
 ```
 $make tun_ssl
-$sudo ./tun_ssl [PORT] 0
+$sudo ./tun_ssl 0 [PORT]
 ```
 
 Client

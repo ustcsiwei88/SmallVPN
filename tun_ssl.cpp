@@ -82,6 +82,11 @@ void server(){
 	sa.sin_family=AF_INET;
 	sa.sin_port=htons(PORT);
 	sa.sin_addr.s_addr = INADDR_ANY;
+	int on = 1;
+	if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))){
+		printf("setsockopt error\n");
+		exit(1);
+	}
 	if(bind(sockfd, (struct sockaddr*)&sa, sizeof(sa))<0){
 		printf("bind error\n");
 		exit(1);

@@ -1,6 +1,6 @@
 ### WhereRU
 
-This is the homepage or WhereRU. It is implemented in userspace and quite simple, but it's highly performant.
+This is the homepage or WhereRU, a VPN built for school projects. It is implemented in userspace and quite simple, but it's highly performant.
 
 The SSL version: AES128-SHA
 

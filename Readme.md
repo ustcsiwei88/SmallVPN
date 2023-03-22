@@ -1,6 +1,6 @@
 ### SmallVPN
 
-This is the homepage or WhereRU, a VPN built for school projects. It is implemented in userspace and quite simple, but it's highly performant.
+This is the homepage or SmallVPN, a VPN built for school projects. It is implemented in userspace and quite simple, but it's highly performant.
 
 The SSL version: AES128-SHA
 
@@ -10,7 +10,7 @@ No encrpytion version: tun
 
 ---
 
-Here is how to run WhereRU (with tun_ssl for example)
+Here is how to run SmallVPN (with tun_ssl for example)
 
 Server
 ```

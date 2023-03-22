@@ -1,4 +1,4 @@
-### WhereRU
+### SmallVPN
 
 This is the homepage or WhereRU, a VPN built for school projects. It is implemented in userspace and quite simple, but it's highly performant.
 

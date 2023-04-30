@@ -1,6 +1,6 @@
 ### SmallVPN
 
-This is the homepage or SmallVPN, a VPN built for school projects. It is implemented in userspace and quite simple, but it's highly performant.
+This is the homepage for SmallVPN, a VPN built for a school project. It is implemented completely in the userspace and is quite simple, but it is highly performant.
 
 The SSL version: AES128-SHA
 
